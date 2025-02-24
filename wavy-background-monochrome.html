@@ -35,16 +35,74 @@
         uniform float iTime;
         uniform vec2 iResolution;
 
-        void main() {
-            // Ensure resolution and fragCoord are being passed correctly
-            vec2 uv = v_uv;
-            uv.y *= 1.25; // Scale the y coordinate for better aspect ratio
+        // Gradient function
+        float gradient(float p)
+        {
+            vec2 pt0 = vec2(0.00, 0.0);
+            vec2 pt1 = vec2(0.86, 0.1);
+            vec2 pt2 = vec2(0.955, 0.40);
+            vec2 pt3 = vec2(0.99, 1.0);
+            vec2 pt4 = vec2(1.00, 0.0);
+            if (p < pt0.x) return pt0.y;
+            if (p < pt1.x) return mix(pt0.y, pt1.y, (p - pt0.x) / (pt1.x - pt0.x));
+            if (p < pt2.x) return mix(pt1.y, pt2.y, (p - pt1.x) / (pt2.x - pt1.x));
+            if (p < pt3.x) return mix(pt2.y, pt3.y, (p - pt2.x) / (pt3.x - pt2.x));
+            if (p < pt4.x) return mix(pt3.y, pt4.y, (p - pt3.x) / (pt4.x - pt3.x));
+            return pt4.y;
+        }
 
-            // Use a simple sine wave pattern for color debugging
-            float colorValue = 0.5 + 0.5 * sin(iTime + uv.x * 10.0); // Simple time-based color change
+        // Wave calculation
+        float waveN(vec2 uv, vec2 s12, vec2 t12, vec2 f12, vec2 h12)
+        {
+            vec2 x12 = sin((iTime * s12 + t12 + uv.x) * f12) * h12;
+            float g = gradient(uv.y / (0.5 + x12.x + x12.y));
+            return g * 0.27;
+        }
 
-            // Set the color based on the sine function
-            gl_FragColor = vec4(colorValue, colorValue, colorValue, 1.0);
+        float wave1(vec2 uv)
+        {
+            return waveN(vec2(uv.x, uv.y - 0.25), vec2(0.03, 0.06), vec2(0.00, 0.02), vec2(8.0, 3.7), vec2(0.06, 0.05));
+        }
+
+        float wave2(vec2 uv)
+        {
+            return waveN(vec2(uv.x, uv.y - 0.25), vec2(0.04, 0.07), vec2(0.16, -0.37), vec2(6.7, 2.89), vec2(0.06, 0.05));
+        }
+
+        float wave3(vec2 uv)
+        {
+            return waveN(vec2(uv.x, 0.75 - uv.y), vec2(0.035, 0.055), vec2(-0.09, 0.27), vec2(7.4, 2.51), vec2(0.06, 0.05));
+        }
+
+        float wave4(vec2 uv)
+        {
+            return waveN(vec2(uv.x, 0.75 - uv.y), vec2(0.032, 0.09), vec2(0.08, -0.22), vec2(6.5, 3.89), vec2(0.06, 0.05));
+        }
+
+        // Main image function to render the shader
+        void mainImage(out vec4 fragColor, in vec2 fragCoord)
+        {
+            vec2 uv = fragCoord.xy / iResolution.xy;
+    
+            // Sum of wave effects
+            float waves = wave1(uv) + wave2(uv) + wave3(uv) + wave4(uv);
+    
+            float x = uv.x;
+            float y = 1.0 - uv.y;
+    
+            // Background color (grayscale)
+            float bg = mix(0.2, 0.8, (x + y) * 0.55);
+    
+            // Add waves to the background color (monochrome)
+            float ac = bg + waves;
+
+            // Set the final fragment color in grayscale
+            fragColor = vec4(vec3(ac), 1.0);
+        }
+
+        void main()
+        {
+            mainImage(gl_FragColor, gl_FragCoord.xy);
         }
     `;
 
@@ -109,9 +167,9 @@
 
     function render(time) {
         gl.clear(gl.COLOR_BUFFER_BIT);
-        gl.uniform1f(timeLocation, time * 0.001);  // Pass time to shader
+        gl.uniform1f(timeLocation, time * 0.001);
         gl.uniform2f(resolutionLocation, canvas.width, canvas.height); // Pass the resolution to the shader
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // Draw the rectangle covering the canvas
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         requestAnimationFrame(render);
     }
 
